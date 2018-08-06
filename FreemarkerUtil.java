@@ -4,10 +4,11 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 
 import java.io.*;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.stream.Stream;
 
 
 public class FreemarkerUtil {
@@ -35,13 +36,9 @@ public class FreemarkerUtil {
     }
 
 
-    public static void generateServiceInterfaceFile(String model) throws Exception{
-        String packageName =  resolveModel2Package(model);
-        String importPackageName =  resolveModel2ImportPackageName(model);
-        String modelName = resolveModel2Name(model);
+    public static void generateServiceInterfaceFile(String servicePackagePath,String importPackageName,String modelName) throws Exception{
 
         /* interface */
-        String servicePackagePath = USER_DIR+BASE_PACKAGE+packageName+PACKAGE_SERVICE;
         System.out.println(servicePackagePath);
         File servicePackage = new File(servicePackagePath);
         if(!servicePackage.exists()){
@@ -95,11 +92,60 @@ public class FreemarkerUtil {
     private static String resolveModel2Package(String model){
         return (resolveModel2ImportPackageName(model)).replace(".","/")+"/";
     }
+
+    private static String resolvePath2Package(String packageName){
+        return packageName.substring(0,packageName.lastIndexOf("/"));
+    }
     private static String resolveModel2ImportPackageName(String model){
         return model.substring(0,model.indexOf(".model"));
     }
+
+    private static String resolvePath(String packageName){
+        return packageName.replace(".","/");
+    }
     private static String resolveModel2Name(String model){
         return (model.substring(model.lastIndexOf(".")+1));
+    }
+
+    public static List generate(String rootPath, String packageName, boolean recursive){
+        String basePackage = rootPath+"/src/main/java/"+resolvePath(packageName)+"/";
+        Map<String,String> generatePathMap = new HashMap<>(8);
+        generatePathMap.put("servicePath",rootPath+"/src/main/java/"+resolvePath2Package(resolvePath(packageName))+"/service");
+        return getClassInFile(Paths.get(basePackage),resolveModel2ImportPackageName(packageName),generatePathMap,recursive);
+    }
+
+    public static List<Class<?>> getClassInFile(Path path, String packageName,Map<String,String> generatePathMap, boolean recursive) {
+        if (!Files.exists(path)) {
+            return Collections.emptyList();
+        }
+        List<Class<?>> classList = new ArrayList<>();
+        if (Files.isDirectory(path)) {
+            if (!recursive) {
+                return Collections.emptyList();
+            }
+            try {
+                //获取目录下的所有文件
+                Stream<Path> stream = Files.list(path);
+                Iterator<Path> iterator = stream.iterator();
+                while (iterator.hasNext()) {
+                    classList.addAll(getClassInFile(iterator.next(), packageName,generatePathMap, recursive));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            try {
+                //由于传入的文件可能是相对路径, 这里要拿到文件的实际路径, 如果不存在则报IOException
+                path = path.toRealPath();
+                String pathStr = path.toString();
+                String modelName = pathStr.substring(pathStr.lastIndexOf("\\")+1,pathStr.lastIndexOf("."));
+                generateServiceInterfaceFile(generatePathMap.get("servicePath"),packageName,modelName);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return classList;
     }
 
 }
