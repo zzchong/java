@@ -10,7 +10,10 @@ import java.util.Map;
 
 
 /**
+ * idea 插件 http://www.jetbrains.org/intellij/sdk/docs/basics/types_of_plugins.html
+ * 自动生成service serviceImpl文件
  * @author wb-zzc422008
+ * 
  */
 public class AutoCreateAction extends AnAction {
 
